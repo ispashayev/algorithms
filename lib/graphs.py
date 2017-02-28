@@ -27,6 +27,9 @@ class Graph(object):
         try: self.graph[u].add(v)
         except KeyError: self.graph[u] = {v}
         self.marks[edge] = mark
+    def add_edges(self, edge_set, mark=False):
+        for edge in edge_set:
+            self.add_edge(edge, mark)
     def remove_edge(self, edge):
         v,u = edge
         self.graph[v].remove(u)
@@ -39,13 +42,22 @@ class Graph(object):
         if edge in set(self.marks.keys()): self.marks[edge] = mark
         elif edge[::-1] in set(self.marks.keys()): self.marks[edge[::-1]] = mark
         else: raise KeyError('Edge not in graph.')
+    def get_unmarked_edge(self):
+        for edge in self.marks.keys():
+            if not self.marks[edge]:
+                return edge
+        return None
     def get_unmarked_edge(self, v): # returns a neighbor
+        if not self.vertex_exists_in_graph(v):
+            raise KeyError('Vertex does not exist in graph.')
         neighbors = self.graph[v]
         for u in neighbors:
             try:
-                if self.marks[(v,u)]: return u
-            except KeyError: return self.marks[(u,v)]:
-                if self.marks[(u,v)]: return v
+                if not self.marks[(v,u)]:
+                    return u
+            except KeyError:
+                if not self.marks[(u,v)]:
+                    return u
         return None
     def vertex_exists_in_graph(self, vertex):
         try: self.graph[vertex]
@@ -79,18 +91,27 @@ class Graph(object):
                 if G_prime.vertex_exists_in_graph(u): G_prime.remove_vertex(u)
             return G_prime
         else: Exception('contract_blossom with make_new=True is unimplemented.')
-            
+
 class Path(Graph):
     def __init__(self, edges=set([])):
         self.edges = edges
         self.vertices = set([x[0] for x in edges] + [x[1] for x in edges])
-        self.end_1, self.end_2 = None, None # just add a method that does a traversal instead
+        if len(edges) == 0:
+            self.end_1, self.end_2 = None, None
+        else:
+            counts = {}
+            for v in self.vertices: counts[v] = 0
+            for v,u in self.edges: counts[v] += 1; counts[u] += 1
+            self.end_1, self.end_2 = [v for v in self.vertices if counts[v] == 1]
     def length(self):
         return len(self.edges)
+    def get_ends(self):
+        return (self.end_1, self.end_2)
     def add_edge(edge): # edges may still be invalid in this implementation
         v, u = edge
         if edge not in self.edges:
             self.edges.add(edge)
+            self.vertices.add(v)
         else:
             raise ValueError('Edge already exists in path.')
         if len(self.edges) == 1: return
@@ -108,10 +129,13 @@ class Path(Graph):
             self.end_2 = v
 
 class Matching(object):
-    def __init__(self):
-        self.edges = set([])
-        self.matches = {}
-        self.marks = {}
+    def __init__(self, init_matches=set([])):
+        self.edges = init_matches
+        self.marks, self.matches = {}, {}
+        for match in init_matches:
+            v,u = match
+            self.matches[v] = u; self.matches[u] = v
+            self.marks[match] = False
     def length(self):
         return len(self.edges)
     def add_edge(self, edge, mark=False):
@@ -122,13 +146,31 @@ class Matching(object):
         self.matches[v] = u
         self.matches[u] = v
         self.marks[edge] = mark
-    def get_matched_vertex(self, vertex):
+    def remove_match(self, edge):
+        if not self.edge_in_matching(edge):
+            raise KeyError('Edge does not exist in matching.')
+        self.edges -= {edge,edge[::-1]}
+        try: self.marks.pop(edge)
+        except KeyError: self.marks(edge[::-1])
+        self.matches.pop(edge[0]); self.matches.pop(edge[1])
+    def get_matched_vertex(self, vertex, raise_error=True):
         try:
             return self.matches[vertex]
         except KeyError:
-            raise KeyError('Vertex is unmatched.')        
-    def augment(self, augmenting_path):
-        return Matching((M - augmenting_path.edges) | (augmenting_path.edges - M))
+            if raise_error:
+                raise KeyError('Vertex is unmatched.')
+            return None
+    def get_matched_edge(self, vertex, raise_error=True):
+        try:
+            return (vertex,self.matches[vertex])
+        except KeyError:
+            if raise_error:
+                raise KeyError('Vertex is unmatched.')
+            return None
+    def edge_in_matching(self, e):
+        return e in self.edges or e[::-1] in self.edges
+    def augment(self, aug_path):
+        return Matching((self.edges - aug_path.edges) | (aug_path.edges - self.edges))
     def mark_all(self):
         for edge in self.marks.keys():
             self.marks[edge] = True
@@ -137,47 +179,56 @@ class Matching(object):
     def contract_blossom(self, edges, make_new=False):
         if make_new:
             M_prime = Matching()
-            M_prime.edges = self.edges; M_prime.matches = self.matches; M_prime.marks = self.marks
+            M_prime.edges = self.edges
+            M_prime.matches = self.matches
+            M_prime.marks = self.marks
             blossom_vertices = set([e[0] for e in edges] + [e[1] for e in edges])
-            for edge in edges:
-                v,u = edge
-                if M_prime.get_matched_vertex(v) not in blossom_vertices:
-                    stem_root = {v}; break
-                if M_prime.get_matched_vertex(u) not in blossom_vertices:
-                    stem_root = {u}; break
-            for edge in edges:
-                if stem_root not in edge:
-                    M_prime.edges.remove(edge); M_prime.marks.pop(edge)
-                    M_prime.matches.pop(edge[0]); M_prime.matches.pop(edge[1])
-            stem_match = M_prime.get_matched_vertex(stem_root)
-            M_prime.edges -= {(stem_root,stem_match),(stem_match,stem_root)}
-            M_prime.edges.add((blossom,stem_match))
+
+            # finding the base of the blossom, should be unmatched
+            for v in blossom_vertices:
+                if M.get_matched_vertex(v, raise_error=False) is None:
+                    blossom_base = v; break
+
+            # remove the matches within the blossom
+            for v in blossom_vertices - {blossom_base}:
+                match = M.get_matched_edge(v)
+                M_prime.remove_match(match)
+
+            # DEBUGGING: this should error out (tries to update match of the
+            # blossom base, which should not exist)
+            stem_tip = M_prime.get_matched_vertex(blossom_base)
+            M_prime.edges -= {(stem_tip,blossom_base),(blossom_base,stem_tip)}
+            M_prime.edges.add((stem_tip,blossom))
             try:
-                root_match_mark = M_prime.marks[(stem_root,stem_match)]
-                M_prime.marks.pop((stem_root,stem_match))
+                stem_tip_mark = M_prime.marks[(stem_tip,blossom_base)]
+                M_prime.marks.pop((stem_tip,blossom_base))
             except KeyError:
-                root_match_mark = M_prime.marks[(stem_match,stem_root)]
-                M_prime.marks.pop((stem_match,stem_root))
-            M_prime.marks[(blossom,stem_match)] = root_match_mark
-            M_prime[stem_match] = blossom; M_prime[blossom] = stem_match
-            M_prime.matches.pop(stem_root)
-        return M_prime
-        else: raise Exception('Matching:contract unimplemented with make_new=False')
+                stem_tip_mark = M_prime.marks[(blossom_base,stem_tip)]
+                M_prime.marks.pop((blossom_base,stem_tip))
+            M_prime.marks[(stem_tip,blossom)] = root_tip_mark
+            M_prime.matches[stem_tip] = blossom
+            M_prime.matches[blossom] = stem_tip
+            M_prime.matches.pop(blossom_base)
+            return M_prime
+        else:
+            raise Exception('Matching:contract unimplemented with make_new=False')
 
 class Tree(Graph):
     def __init__(self, root):
         super(Tree, self).__init__()
         self.root = root
+        self.add_vertex(root)
         self.parents = { self.root: None }
     def add_edge(self, edge):
         v, u = edge
         super(Tree, self).add_edge(edge)
         if v in self.get_vertices(): self.parents[u] = v
         elif u in self.get_vertices(): self.parents[v] = u
-        raise KeyError('Adding edge to tree violates connectedness of graph')
+        else: raise KeyError('Adding edge to tree violates connectedness of graph')
+    # i dont think I need this function, and can just call super.
     def get_unmarked_vertex(self):
         for vertex in self.graph.keys():
-            if not self.marks[vertex] and self.distance(vertex) % 2 == 0:
+            if not self.marks[vertex] and self.elevation(vertex) % 2 == 0:
                 return vertex
         return None
     def root_path(self, vertex):
@@ -188,6 +239,8 @@ class Tree(Graph):
                 return set(path_edges)
             path_edges.append((vertex,path))
             vertex = parent
+    def elevation(self, vertex):
+        return len(self.root_path(vertex))
     def get_path(self, v, w):
         v_path = self.root_path(v)
         w_path = self.root_path(w)
@@ -200,12 +253,12 @@ class Forest(object):
         self.trees.add(tree)
     def get_unmarked_vertex(self):
         for tree in self.trees:
-            vertex = get_unmarked_vertex(tree)
-            if vertex is not None: return (vertex, tree.root)
+            vertex = tree.get_unmarked_vertex()
+            if vertex is not None:
+                return (vertex, tree)
         return (None, None)
     def get_tree(self, vertex):
         for tree in self.trees:
-            if w in tree.get_vertices():
+            if vertex in tree.get_vertices():
                 return tree
         return None
-    
