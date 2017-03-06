@@ -78,10 +78,7 @@ class Graph(object):
     def contract_edge(self, edge, make_new=False):
         raise Exception('Graph:contract_edge is unimplented')
 
-    '''
-    This can be an issue: The base might actually be unmatched to some preceding vertex.
-    '''
-    def contract_blossom(self, blossom, make_new=False): # this isn't handling nested blossoms
+    def contract_blossom(self, blossom, make_new=False):
         # a blossom in an odd cycle s.t. there exists an M-alternating path for some matching M in G
         blossom_vertices = set([e[0] for e in blossom] + [e[1] for e in blossom])
         if make_new:
@@ -183,7 +180,6 @@ class Matching(object):
             M_prime = copy.deepcopy(self)
             blossom_vertices = set([e[0] for e in edges] + [e[1] for e in edges])
             # finding the base of the blossom, should be unmatched
-            # TODO: IS IT ACTUALLY ALWAYS UNMATCHED...?
             for v in blossom_vertices:
                 if self.get_matched_vertex(v, raise_error=False) is None:
                     blossom_base = v; break
@@ -208,7 +204,7 @@ class Tree(Graph):
         if v in self.get_vertices(): self.parents[u] = v
         elif u in self.get_vertices(): self.parents[v] = u
         else: raise KeyError('Adding edge to tree violates connectedness of graph.')
-    # i dont think I need this function, and can just call super.
+    # TODO: I dont think I need this function, and can just call super.
     def get_unmarked_vertex(self):
         for vertex in self.graph.keys():
             if not self.marks[vertex] and self.elevation(vertex) % 2 == 0:
