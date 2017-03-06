@@ -1,0 +1,124 @@
+from lib.Graphs import Graph, Tree, Path, Matching, Forest
+
+def lift_augmenting_path(G, P_prime, M, B, base):
+    end_1, end_2 = P_prime.get_ends()
+    blossom_vertices = set([e[0] for e in B] + [e[1] for e in B])
+    blossom_expansion = set([])
+    lifted = P_prime.edges - set([e for e in P_prime.edges if tuple(B) in e])
+    stems = P_prime.get_neighbors(tuple(B))
+    if len(stems) == 2: # blossom is an internal vertex of the path
+        a,b = stems
+        match_a = M.get_matched_vertex(a)
+        if match_a == base:
+            lifted.add((a,base))
+            start, end = base, b
+        else:
+            lifted.add((b,base))
+            start, end = base, a
+        branch_one_current, branch_two_current = blossom_vertices & G.get_neighbors(start)
+        branch_one = {(start, branch_one_current)}
+        branch_two = {(start, branch_two_current)}
+        for k in range(len(blossom)/2 - 1):
+            branch_next_one = blossom_vertices & G.get_neighbors(branch_one_current)
+            branch_next_one = (branch_next_one - {branch_one_current}).pop()
+            branch_next_two = blossom_vertices & G.get_neighbors(branch_two_current)
+            branch_next_two = (branch_next_two - {branch_two_current}).pop()
+            branch_one |= {(branch_one_current, branch_next_one)}
+            branch_two |= {(branch_two_current, branch_next_two)}
+            branch_one_current, branch_two_current = branch_next_one, branch_next_two
+        if len(blossom) % 4 == 1:
+            if end in G.get_neighbors(branch_one_current):
+                blossom_expansion |= branch_one | {(branch_one_current,end)}
+            elif end in G.get_neighbors(branch_two_current):
+                blossom_expansion |= branch_two | {(branch_two_current,end)}
+        elif len(blossom) % 4 == 3:
+            if end in G.get_neighbors(branch_one_current):
+                blossom_expansion |= branch_two | {(branch_one_current,end)}
+            elif end in G.get_neighbors(branch_two_current):
+                blossom_expansion |= branch_one | {(branch_two_current,end)}
+            blossom_expansion |= {(branch_one_current,branch_two_current)}
+        else:
+            raise Exception('Blossom is not an odd cycle.')
+    elif len(stems) == 1: # blossom is an endpoint, so must be exposed
+        stem = stems.pop()
+        start, end = (G.get_neighbors(stem) & blossom_vertices).pop(), base
+        lifted.add((stem,start))
+        prev, current = start, M.get_matched_vertex(start)
+        while current != end:
+            blossom_expansion.add((prev,current))
+            B -= {(prev,current),(current,prev)}
+            v,u = [e for e in B if current in e][0]
+            if current == v: prev, current = v, u
+            else: prev, current = u, v
+        blossom_expansion.add((prev,current))
+    else:
+        raise KeyError('Invalid number of stems.')
+
+    lifted |= blossom_expansion
+    return Path(lifted)
+
+def find_augmenting_path(G, M):
+    F = Forest() # a set of trees
+    G.unmark_all()
+    for e in M.edges:
+        G.mark_edge(e, True)
+    exposed_vertices = G.get_vertices() - M.covered_vertices()
+    for v in exposed_vertices:
+        F.plant(Tree(v))
+    while True:
+        v,v_tree = F.get_unmarked_vertex()
+        if v is None:
+            break
+        while True:
+            w = G.get_unmarked_edge(v)
+            if w is None:
+                break
+            w_tree = F.get_tree(w)
+            if w_tree is None:
+                x = M.get_matched_vertex(w)
+                v_tree.add_edge((v,w))
+                v_tree.add_edge((w,x))
+            elif w_tree.elevation(w) % 2 == 0:
+                if v_tree.root != w_tree.root: # found augmenting path
+                    P = Path(v_tree.root_path(v) | {(v,w)} | w_tree.root_path(w))
+                    return P
+                else:
+                    B = v_tree.get_path(v,w) | {(v,w)} # B is the blossom
+                    G_prime = G.contract_blossom(tuple(B), make_new=True) # tuple of tuples
+                    M_prime = M.contract_blossom(tuple(B), make_new=True)
+                    P_prime = find_augmenting_path(G_prime, M_prime)
+                    if P_prime.vertex_exists_in_graph(tuple(B)):
+                        P = lift_augmenting_path(G, P_prime, M, B, v_tree.root)
+                        return P
+                    return P_prime
+            G.mark_edge((v,w), True)
+        v_tree.mark_vertex(v, True)
+    return Path()
+
+def find_maximum_matching(G, M):
+    P = find_augmenting_path(G, M)
+    if P.get_length() == 0:
+        return M
+    else:
+        M_augmented = M.augment(P)
+        return find_maximum_matching(G, M_augmented)
+
+if __name__ == '__main__':
+    G = Graph()
+    '''
+    edge_set = {(0,1),(0,3),(0,4)}
+    edge_set |= {(1,3),(1,4)}
+    edge_set |= {(2,3),(2,5)}
+    edge_set |= {(3,5)}
+    edge_set |= {(4,5)}
+    '''
+    graph_edges = {(0,1),(1,2),(2,3),(3,4),(4,5),(5,1)}
+    graph_edges |= {(6,7),(7,8),(8,9),(9,10),(10,6),(6,11),(11,0)}
+    G.add_edges(graph_edges)
+    init_matches = {(4,5),(2,3)}
+    init_M = Matching(init_matches)
+    M = find_maximum_matching(G, Matching())
+    print 'The graph is:'
+    print G.graph
+    print 'The maximum matching in this graph is:'
+    print M.edges
