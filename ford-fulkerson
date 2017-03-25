@@ -1,0 +1,46 @@
+#!/usr/bin/python
+
+'''
+Author:		Iskandar Pashayev
+Purpose:	Computes a maximum-flow (a minimum-cut) in a graph.
+References:	https://en.wikipedia.org/wiki/Ford%E2%80%93Fulkerson_algorithm
+'''
+
+from lib.Graphs import Network, flow
+
+def compute_max_flow(N):
+	flow = flow(N)
+	s, t = N.get_source(), N.get_sink()
+	while True:
+		path = N.get_path(s, t)
+		if path.get_length() == 0:
+			break
+		path_flow = float('Inf')
+		curr, prev = t, None
+		while (curr != s):
+			nxt = (path.get_neighbors(s) - {prev}).pop()
+			edge = (curr, nxt)
+			parent_value = flow.get_value(edge)
+			path_flow = min(path_flow, parent_value)
+			prev = curr
+			curr = nxt
+
+		# Add path flow to overall flow
+		flow.add(path_flow)
+
+		# Update residual capacities of the edges and reverse edges along the path
+		curr, prev = t, None
+		while curr != s:
+			nxt = (path.get_neighbors(s) - {prev}).pop()
+			edge = (curr, nxt)
+			flow.update(edge, path_flow)
+			prev = curr
+			curr = nxt
+	return flow
+
+if __name__ == '__main__':
+	N = Network()
+	init_edge_capacities = {((1,2),3),((1,3),5),((2,3),6),((2,4),3),((3,4),2)}
+	N.add_edges(init_edge_capacities)
+	max_flow = compute_max_flow(N)
+	print 'The value of the maximum flow is', max_flow.get_value()
