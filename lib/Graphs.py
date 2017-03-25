@@ -1,14 +1,24 @@
+'''
+Author:     Iskandar Pashayev
+Purpose:    Implements graph theoretic data structures.
+'''
+
 import copy
 
 class Graph(object):
     def __init__(self):
         self.graph = {} # a dictionary mapping vertices to adjacent vertices
         self.marks = {} # marks both vertices and edges
-    def add_vertex(self, vertex, mark=False):
+    def add_vertex(self, vertex, mark=False, raise_error=True):
         if vertex in set(self.graph.keys()):
-            raise KeyError('Vertex already exists in graph.')
-        self.graph[vertex] = set([])
-        self.marks[vertex] = mark
+            if raise_error:
+                raise KeyError('Vertex already exists in graph.')
+        else:
+            self.graph[vertex] = set([])
+            self.marks[vertex] = mark
+    def add_vertices(self, vertices, raise_error=True):
+        for v in vertices:
+            self.add_vertex(v, raise_error=raise_error)
     def remove_vertex(self, v):
         incident_edges = [(v,u) for u in self.graph[v]]
         for marking in incident_edges:
@@ -33,7 +43,7 @@ class Graph(object):
         self.marks[u] = mark
     def add_edges(self, edge_set, mark=False):
         for edge in edge_set:
-            self.add_edge(edge, mark)
+            self.add_edge(edge, mark=mark)
     def remove_edge(self, edge):
         v,u = edge
         self.graph[v].pop(u)
@@ -91,6 +101,31 @@ class Graph(object):
             return G_prime
         else:
             raise Exception('Graph:contract_blossom with make_new=True is unimplemented.')
+    def get_path(self, s, t, search='BFS'):
+        if not self.vertex_exists_in_graph(s) or not self.vertex_exists_in_graph(t):
+            raise KeyError('Cannot compute path: vertices not in graph.')
+        if search == 'BFS':
+            parents = {}
+            for v in self.get_vertices():
+                visited[v] = False
+            visited[s] = True
+            q = self.get_neighbors(s)
+            while len(q) > 0:
+                current = q.pop()
+                for neighbor in self.get_neighbors(current):
+                    if neighbor not in visited:
+                        visited[neighbor] = True
+                        q.insert(0, neighbor)
+                        parent[neighbor] = current
+            if visited[t]:
+                st_path = set([])
+                current = s
+                while current != t:
+                    st_path |= (current,parents[current])
+                    current = parents[current]
+                return Path(st_path)
+        else:
+            raise Exception('Other search types for finding paths in graph are unimplemented.')
 
 class Path(Graph):
     def __init__(self, edges=set([])):
@@ -166,7 +201,7 @@ class Matching(object):
         return e in self.edges or e[::-1] in self.edges
     def augment(self, aug_path):
         # Make the ordering of the edge tuple consistent between aug_path and this matching
-        transposed = [(e,e[::-1]) for e in aug_path.edges if e[::-1] in self.edges]
+        transposed = [(e,e[::-1]) for e in aug_path.edges if e[::-1] in self.edges] # see if you can cut this out
         if len(transposed) > 0:
             remove, add = zip(*(transposed))
             aug_path.edges = aug_path.edges - set(remove) | set(add)
@@ -241,3 +276,65 @@ class Forest(object):
             if vertex in tree.get_vertices():
                 return tree
         return None
+
+class Network(Graph):
+    def __init__(self, V=None, E=None, s=None, t=None, c=None):
+        if V is not None:
+            self.initialize_from_given(V, E, s, t, c)
+        else:
+            super(Network, self).__init__()
+            self.capacity, self.flow = {}, {}
+    def initialize_from_given(Vertices, Edges, source, sink, capacity_fn):
+        super(Network, self).add_vertices(Vertices)
+        if Edges is None:
+            raise KeyError('Failed to initialize network with given edge set.')
+        super(Network, self).add_edges(Edges)
+        self.E = Edges
+        if not self.vertex_exists_in_graph(source):
+            raise KeyError('Failed to initialize network with given source.')
+        self.s = source
+        if source == sink or not self.vertex_exists_in_graph(sink):
+            raise KeyError('Failed to initialize network with given sink.')
+        self.t = sink
+        self.capacity_fn = capacity_fn
+        capacity_keys = set(capacity_fn.keys())
+        edges = self.graph.keys()
+        if len((capacity_keys - edges) | (edges - capacity_keys)) > 0:
+            raise KeyError('Failed to initialize network with given capacity function.')
+    def get_source(self):
+        return self.s
+    def get_sink(self):
+        return self.t
+    def add_edge(self, e, capacity):
+        super(Network, self).add_edge(e)
+        self.capacity_fn[e] = capacity
+    def add_edges(self, edge_capacities):
+        for edge,capacity in edge_capacities:
+            self.add_edge(edge, capacity)
+    def remove_edge(self, edge):
+        super(Network, self).remove_edge(edge)
+        self.capacity_fn.pop(edge)
+
+class flow(object):
+    def __init__(self, network):
+        if network is None:
+            raise Exception('Cannot have a flow for an empty network.')
+        if len(network.V) == 0:
+            raise Exception('Cannot have a flow for an empty network.')
+        if network.get_source() is None or network.get_sink() is None:
+            raise Exception('Network does not have a source or a sink.')
+        self.network = network
+        self.flow = {}
+        for edge in self.network.capacity_fn.keys():
+            self.flow[edge] = 0
+        self.flow_value = 0
+    def get_value(self, edge=None):
+        if edge is None:
+            return self.flow_value
+        if not self.network.edge_exists_in_graph(edge):
+            raise KeyError('Edge does not exist in the network.')
+        try: return self.flow[edge]
+        except: return self.flow[edge[::-1]]
+    def add(self, edge, value):
+        self.flow[edge] = value
+        self.flow_value += path_flow
