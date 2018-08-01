@@ -157,6 +157,36 @@ class Graph(object):
         return False
     return True
 
+  @staticmethod
+  def compute_isomorphism(G_1, G_2):
+    if len(G_1.graph) != len (G_2.graph):
+      # different number of vertices => no isomorphism
+      return None
+    degree_dist_1, degree_dist_2 = {}, {}
+    for v_1,v_2 in zip(G_1.graph, G_2.graph):
+      degree_dist_1[len(G_1.graph[v_1])] = v_1
+      degree_dist_2[len(G_2.graph[v_2])] = v_2
+    if len(degree_dist_1) != len(degree_dist_2):
+      # different degree distribution => no isomorphism
+      return None
+    for deg_1,deg_2 in zip(degree_dist_1,degree_dist_2):
+      if deg_1 != deg_2:
+        return None
+      if len(degree_dist_1[deg_1]) != len(degree_dist_2[deg_2]):
+        return None
+
+    '''
+    Now that we have checked the basic constraints for an isomorphism the
+    next step is to exhaustively generate feasible isomorphisms and verifying
+    them. If we find one that works, return it!
+    
+    To generate an isomorphism. We utilize the degree distribution. In any
+    isomorphism, it must be the case that the degree of a vertex stays the
+    same. So we will only try mappings that preserves the degree distribution.
+    '''
+
+    return None
+
 class Path(Graph):
   def __init__(self, edges=set([])):
     super(Path, self).__init__()
