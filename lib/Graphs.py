@@ -4,6 +4,8 @@ Purpose:    Implements graph theoretic data structures.
 '''
 
 import copy
+import random
+from collections import defaultdict
 
 class Graph(object):
   def __init__(self):
@@ -150,7 +152,7 @@ class Graph(object):
   def is_isomorphism(G_1, G_2, g1_TO_g2):
     for v,neighbors in G_1.graph.items():
       translated_v = g1_TO_g2[v]
-      translated_neighbors = map(lambda x: g1_TO_g2[x], neighbors)
+      translated_neighbors = set(map(lambda x: g1_TO_g2[x], neighbors))
       g2_group = G_2.graph[translated_v]
       if len(translated_neighbors ^ g2_group) > 0:
         # There are vertices that are not in both sets.
@@ -162,10 +164,10 @@ class Graph(object):
     if len(G_1.graph) != len (G_2.graph):
       # different number of vertices => no isomorphism
       return None
-    degree_dist_1, degree_dist_2 = {}, {}
+    degree_dist_1, degree_dist_2 = defaultdict(list), defaultdict(list)
     for v_1,v_2 in zip(G_1.graph, G_2.graph):
-      degree_dist_1[len(G_1.graph[v_1])] = v_1
-      degree_dist_2[len(G_2.graph[v_2])] = v_2
+      degree_dist_1[len(G_1.graph[v_1])].append(v_1)
+      degree_dist_2[len(G_2.graph[v_2])].append(v_2)
     if len(degree_dist_1) != len(degree_dist_2):
       # different degree distribution => no isomorphism
       return None
@@ -184,6 +186,21 @@ class Graph(object):
     isomorphism, it must be the case that the degree of a vertex stays the
     same. So we will only try mappings that preserves the degree distribution.
     '''
+
+    def _get_random_mapping(degree_dist_1, degree_dist_2):
+      g1_TO_g2 = {}
+      for deg,vertices in degree_dist_2.items():
+        shuffled = random.sample(vertices, len(vertices))
+        for v,u in zip(degree_dist_1[deg], shuffled):
+          g1_TO_g2[v] = u
+      return g1_TO_g2
+
+    ctr = 0
+    while ctr < 1000:
+      mapping = _get_random_mapping(degree_dist_1, degree_dist_2)
+      if Graph.is_isomorphism(G_1, G_2, mapping):
+        return mapping
+      ctr += 1
 
     return None
 
