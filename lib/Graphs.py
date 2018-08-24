@@ -58,9 +58,13 @@ class Graph(object):
   def add_edge(self, edge, mark=False, raise_error=True):
     v, u = edge
     if v not in self.graph:
-      self.add_vertex(v, raise_error=raise_error)
+      if raise_error:
+        raise KeyError('Vertex %s of given edge not in graph.' % v)
+      self.add_vertex(v)
     if u not in self.graph:
-      self.add_vertex(u, raise_error=raise_error)
+      if raise_error:
+        raise KeyError('Vertex %s of given edge not in graph.' % u)
+      self.add_vertex(u)
     self.graph[v].add(u)
     self.graph[u].add(v)
     self.marks[edge] = mark
