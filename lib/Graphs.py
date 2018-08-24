@@ -50,12 +50,17 @@ class Graph(object):
     self.marks[vertex] = mark
 
   '''
-  Adds an edge to the graph. Addition is implicit - if one or both ends of the
-  edge are not vertices in the graph, then the vertex set of the graph is
-  adjusted to include both endpoints.
+  Adds an edge to the graph. If raise_error indicator is set (default True),
+  will fault if either of endpoints of the edge are not in the graph. If an
+  endpoint is not in the graph but the raise_error flag is explicitly not set,
+  then the vertex is added with the default add_vertex method.
   '''
-  def add_edge(self, edge, mark=False): # not necessary for vertex to already exist
+  def add_edge(self, edge, mark=False, raise_error=True):
     v, u = edge
+    if v not in self.graph:
+      self.add_vertex(v, raise_error=raise_error)
+    if u not in self.graph:
+      self.add_vertex(u, raise_error=raise_error)
     self.graph[v].add(u)
     self.graph[u].add(v)
     self.marks[edge] = mark
