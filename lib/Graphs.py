@@ -30,7 +30,7 @@ class Graph(object):
   
   '''
   Adds a collection of vertices to the graph, potentially erroring out if any
-  of the vertices already exists in the graph. Vertices can be in any iterable.
+  of the vertices already exists in the graph. Vertices can be any iterable.
   '''
   def add_vertices(self, vertices, raise_error=True):
     for v in vertices:
@@ -48,18 +48,27 @@ class Graph(object):
     if vertex not in set(self.graph.keys()):
       raise KeyError('Vertex not in graph.')
     self.marks[vertex] = mark
+
+  '''
+  Adds an edge to the graph. Addition is implicit - if one or both ends of the
+  edge are not vertices in the graph, then the vertex set of the graph is
+  adjusted to include both endpoints.
+  '''
   def add_edge(self, edge, mark=False): # not necessary for vertex to already exist
     v, u = edge
-    try: self.graph[v].add(u)
-    except KeyError: self.graph[v] = {u}
-    try: self.graph[u].add(v)
-    except KeyError: self.graph[u] = {v}
+    self.graph[v].add(u)
+    self.graph[u].add(v)
     self.marks[edge] = mark
     self.marks[v] = mark
     self.marks[u] = mark
+  
+  '''
+  Adds a collection of edges to the graph.
+  '''
   def add_edges(self, edge_set, mark=False):
     for edge in edge_set:
       self.add_edge(edge, mark=mark)
+  
   def remove_edge(self, edge):
     v,u = edge
     self.graph[v].pop(u)
