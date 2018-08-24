@@ -70,9 +70,9 @@ class Graph(object):
   '''
   Adds a collection of edges to the graph.
   '''
-  def add_edges(self, edge_set, mark=False):
+  def add_edges(self, edge_set, mark=False, raise_error=True):
     for edge in edge_set:
-      self.add_edge(edge, mark=mark)
+      self.add_edge(edge, mark=mark, raise_error=raise_error)
   
   def remove_edge(self, edge):
     v,u = edge
